@@ -1,2 +1,10 @@
-# blue-team-investigations
-A defensive SOC knowledge base documenting real-world security alert investigations with a blue team mindset, including logs, paths, commands, and investigation flow.
+# Blue Team Investigations
+
+This repository documents security alert investigations from a defensive (Blue Team / SOC) perspective.
+
+The focus is on:
+- How SOC analysts think during investigations
+- Where to look first for evidence
+- Which logs, paths, and commands to check
+- How to differentiate false positives from real incidents
+- Attacker perspective vs normal behaviour
