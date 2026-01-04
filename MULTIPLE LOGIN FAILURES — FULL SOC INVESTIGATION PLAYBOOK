@@ -1,0 +1,547 @@
+
+
+## 🔐 MULTIPLE LOGIN FAILURES — FULL SOC INVESTIGATION PLAYBOOK
+
+> 🧠 Audience: SOC L1–L3
+> 🛡️ Focus: Blue Team / Defensive
+> 📌 Principle: Context → Correlation → Classification
+
+---
+
+## 📘 TABLE OF CONTENTS
+
+1. Alert Context & Detection Understanding
+2. Attack Stage Identification
+3. Correlation Logic
+4. Windows Authentication (Event ID 4625)
+5. Linux / SSH Authentication
+6. VPN / SSO / Identity Providers
+7. Timeline & Correlation
+8. Impact & Lateral Checks
+9. Classification & Decision
+10. Response & Documentation
+11. Final SOC Truth
+
+---
+
+### 🧠 PHASE 1 — ALERT CONTEXT & DETECTION UNDERSTANDING
+
+🔸 **WHY this phase matters**
+🔸 Misunderstanding the alert = wrong investigation
+🔸 Most false positives happen here
+
+---
+
+#### 🔍 WHAT “Multiple Login Failures” REALLY MEANS
+
+🔸 It does **NOT automatically mean an attack**
+🔸 Possible causes include:
+
+* 🔹 User mistyping password
+* 🔹 Expired password
+* 🔹 Service account misconfiguration
+* 🔹 Password spraying
+* 🔹 Brute-force
+* 🔹 Credential stuffing
+* 🔹 Lateral movement testing
+
+🧠 SOC job = classify **which one**, not assume
+
+---
+
+#### 📍 WHERE to look first
+
+🔹 SIEM Alert Payload
+🔹 Rule name
+🔹 Threshold
+🔹 Time window
+🔹 Entities involved
+🔹 Detection rule / correlation logic
+🔹 Grouping logic
+
+* Per user
+* Per IP
+* Per host
+
+---
+
+#### 🛠️ HOW to check in SIEM
+
+🔹 Open alert → inspect **raw contributing events**
+🔹 Validate:
+
+* 🔹 Failure count (example ≥5)
+* 🔹 Time window (5 min / 10 min / 1 hour)
+* 🔹 Grouping logic
+* 🔹 Same username?
+* 🔹 Same source IP?
+* 🔹 Same destination host?
+
+---
+
+#### 📊 WHAT FIELDS to read FIRST (non-negotiable)
+
+| Field                    | Why                       |
+| ------------------------ | ------------------------- |
+| Timestamp                | Sequence & burst analysis |
+| Username                 | Target selection          |
+| Source IP / Host         | Attacker origin           |
+| Destination host         | DC, server, VPN           |
+| Outcome                  | Failure vs success        |
+| Failure reason           | Wrong password vs locked  |
+| Logon type / Auth method | RDP, SMB, SSH, SSO        |
+| Device vendor/product    | Windows, Linux, Okta, VPN |
+
+---
+
+🧠 **Traffic analogy**
+🔸 Source IP → who is coming
+🔸 Destination host → where they’re going
+
+---
+
+#### 🔍 Examples by scenario (CRITICAL)
+
+##### 🔐 Windows / AD login
+
+🔹 Destination host:
+
+* Domain Controller
+* Member Server
+* User workstation
+
+🔹 Common SIEM fields:
+
+* DestinationHost
+* ComputerName
+* TargetHostName
+* dvc
+* host.name
+
+📌 Example
+
+```
+Source IP: 185.23.44.10
+Username: administrator
+Destination Host: DC01.corp.local
+```
+
+👉 Authentication attempt against Domain Controller
+
+---
+
+##### 🌐 VPN login
+
+🔹 Destination host = VPN gateway
+
+Examples:
+
+* FortiGate01
+* PaloAlto-GW
+* Cisco ASA
+
+```
+Source IP: 103.21.55.9
+Destination Host: FortiGate-GW
+Auth: SSL VPN
+```
+
+👉 Remote network access attempt
+
+---
+
+##### 🖥️ RDP attempt
+
+```
+Source IP: 45.77.90.12
+Destination Host: FILE-SERVER-02
+Logon Type: 10
+```
+
+👉 RDP attempt on server
+
+---
+
+##### 🧑‍💻 Linux / SSH login
+
+```
+Source IP: 91.210.12.8
+Destination Host: prod-web-01
+Auth Method: SSH
+```
+
+---
+
+##### ☁️ Cloud / SSO (Azure AD / Okta / Google)
+
+🔹 Destination = **identity service**, not a host
+
+Examples:
+
+* login.microsoftonline.com
+* Okta-SSO
+* Google Workspace
+
+🚨 High-value targets:
+
+* Domain Controller
+* Jump server
+* Database
+* VPN gateway
+
+---
+
+### 🧠 2️⃣ ATTACK STAGE IDENTIFICATION
+
+| Destination       | Likely Stage         |
+| ----------------- | -------------------- |
+| Domain Controller | Privilege escalation |
+| VPN               | Initial access       |
+| File server       | Lateral movement     |
+| DB server         | Data access / exfil  |
+
+---
+
+### 🧠 3️⃣ CORRELATION LOGIC
+
+🔹 Same source IP + many users
+👉 Password spraying
+
+🔹 Same user + many hosts
+👉 Lateral movement
+
+🔹 Failures followed by success
+👉 Compromise until disproven
+
+---
+
+🛑 **Move forward ONLY after**:
+
+* Rule logic understood
+* Platforms identified
+* Success events checked
+
+---
+
+#### 📄 Sample SIEM Normalized Event
+
+```json
+{
+  "event_type": "authentication",
+  "action": "failure",
+  "user": "alice",
+  "src_ip": "203.0.113.5",
+  "dst_host": "DC01.corp.local",
+  "auth_method": "RDP",
+  "failure_reason": "Bad password",
+  "count_in_window": 7,
+  "rule": "Multiple_Failed_Logins_5_in_10min"
+}
+```
+
+---
+
+### 🧠 PHASE 2 — WINDOWS AUTHENTICATION (EVENT ID 4625)
+
+🔸 **WHY Windows logs are critical**
+
+* AD is identity backbone
+* Ransomware & domain takeover start here
+
+---
+
+#### 📍 WHERE to look
+
+🔹 Event Viewer
+`Event Viewer → Windows Logs → Security`
+
+🔹 Physical log file
+`C:\Windows\System32\winevt\Logs\Security.evtx`
+
+🔹 SIEM filters
+
+* EventID = 4625
+* Provider = Microsoft-Windows-Security-Auditing
+
+---
+
+#### 🔍 WHAT to analyze — Event ID 4625
+
+##### Logon Type (HOW)
+
+| Type | Meaning       | Why                  |
+| ---- | ------------- | -------------------- |
+| 2    | Local         | Physical access      |
+| 3    | Network       | Lateral movement     |
+| 10   | RDP           | External brute-force |
+| 4/5  | Batch/Service | Misconfig            |
+| 7    | Unlock        | Normal               |
+
+🚨 LogonType 10 + external IP = brute-force
+
+---
+
+##### Status / SubStatus (WHY)
+
+| Code       | Meaning          |
+| ---------- | ---------------- |
+| 0xC000006A | Wrong password   |
+| 0xC000006D | Invalid creds    |
+| 0xC0000064 | User not found   |
+| 0xC0000234 | Account locked   |
+| 0xC0000071 | Password expired |
+
+🧠 Insight
+
+* Many 006A → guessing
+* Many 0064 → enumeration
+
+---
+
+##### Network Information (WHERE)
+
+🔹 Source Network Address
+🔹 WorkstationName
+🔹 Port
+
+Classify source:
+
+* 🌍 External
+* 🖥️ Internal
+* 🔐 VPN
+* ☁️ Cloud
+* 🌐 Proxy/NAT
+
+---
+
+##### Sample RAW 4625
+
+```
+Event ID: 4625
+Logon Type: 10
+Account Name: Alice
+Status: 0xC000006D
+SubStatus: 0xC000006A
+Source Network Address: 203.0.113.5
+```
+
+---
+
+#### 🚨 Correlate immediately with Event ID 4624
+
+```
+Event ID: 4624
+Account Name: Alice
+Logon Type: 10
+Source IP: 203.0.113.5
+```
+
+🚨 Failure → success = **incident**
+
+---
+
+### 🧠 PHASE 3 — LINUX / SSH AUTHENTICATION
+
+🔸 SSH brute-force is constant
+🔸 Linux logs show **clear intent**
+
+---
+
+#### 📍 WHERE to look
+
+| OS              | Path                |
+| --------------- | ------------------- |
+| Ubuntu / Debian | `/var/log/auth.log` |
+| RHEL / CentOS   | `/var/log/secure`   |
+
+---
+
+#### 🛠️ HOW to extract failures
+
+```bash
+grep "Failed password" /var/log/auth.log
+```
+
+Attacker IP analysis:
+
+```bash
+grep "Failed password" /var/log/auth.log \
+ | awk '{print $(NF-3)}' \
+ | sort | uniq -c | sort -nr
+```
+
+---
+
+#### Sample SSH failure
+
+```
+Failed password for invalid user admin from 203.0.113.7 port 45218 ssh2
+```
+
+🧠 Patterns
+
+* invalid user → bot noise
+* real usernames → targeted
+* success after failures → compromise
+
+---
+
+### 🧠 PHASE 4 — VPN / SSO / IDENTITY PROVIDERS
+
+🔸 Cloud identity = **primary BEC target**
+🔸 Rich metadata available
+
+---
+
+#### 📍 WHERE to look
+
+| Platform         | Path                 |
+| ---------------- | -------------------- |
+| Azure AD         | Entra → Sign-in logs |
+| Okta             | System Logs          |
+| Google Workspace | Login Audit          |
+| VPN              | RADIUS / SSL logs    |
+
+---
+
+#### 🔑 MFA Status (CRITICAL)
+
+🔸 Shows if protection worked or failed
+
+Common values:
+
+* NOT_REQUIRED
+* CHALLENGED
+* PASSED
+* FAILED
+* BYPASSED
+
+---
+
+#### Sample IdP log
+
+```json
+{
+  "user": "alice@corp.com",
+  "src_ip": "198.51.100.9",
+  "result": "FAILURE",
+  "mfa": "NOT_REQUIRED",
+  "location": "Russia"
+}
+```
+
+Later:
+
+```json
+{
+  "user": "alice@corp.com",
+  "src_ip": "198.51.100.9",
+  "result": "SUCCESS",
+  "mfa": "PASSED"
+}
+```
+
+🚨 MFA success after failures + new geo = takeover
+
+---
+
+### 🧠 PHASE 5 — TIMELINE & CORRELATION (MOST IMPORTANT)
+
+🔸 Single log = noise
+🔸 Timeline = truth
+
+🔹 Pivot on:
+
+* Username
+* Source IP
+* 24h minimum (7d for slow spray)
+
+Include:
+
+* Failures
+* Successes
+* Endpoint activity
+* Network traffic
+
+---
+
+### 🧠 PHASE 6 — IMPACT & LATERAL CHECKS
+
+🔸 Success ≠ end
+
+Post-success logs:
+
+**Windows**
+
+* 4672 → Privilege use
+* 4688 → Process creation
+* 5145 → File access
+* 7045 → Services
+
+**Linux**
+
+* sudo usage
+* authorized_keys
+
+**Cloud**
+
+* Mailbox rules
+* App consent
+* Data downloads
+
+---
+
+### 🧠 PHASE 7 — CLASSIFICATION & DECISION
+
+| Pattern                     | Verdict          |
+| --------------------------- | ---------------- |
+| Few failures, user confirms | Benign           |
+| Service account repeats     | Misconfiguration |
+| Invalid SSH users           | Internet noise   |
+| Many users, one IP          | Password spray   |
+| Failure → success           | Incident         |
+
+---
+
+### 🧠 PHASE 8 — RESPONSE & DOCUMENTATION
+
+#### 🔧 Response actions
+
+🔹 Benign
+
+* Close
+* Tune rule
+
+🔹 Attack without success
+
+* Block IP
+* Enforce MFA
+* Rate-limit
+
+🔹 Compromise
+
+* Reset credentials
+* Revoke sessions
+* Full IR escalation
+
+---
+
+#### 📝 What to document
+
+🔹 Detection logic
+🔹 Timeline
+🔹 Evidence
+🔹 Classification
+🔹 Actions
+🔹 Hardening steps
+
+---
+
+## 🧠 FINAL SOC TRUTH
+
+🔑 Multiple login failures are not an alert
+🔑 They are a story
+🔑 Investigation = reconstruction
+🔑 Master this → master SOC incidents
+
+
