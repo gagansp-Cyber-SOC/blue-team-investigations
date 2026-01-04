@@ -1,0 +1,305 @@
+## 🧠 INSIDER THREAT INVESTIGATION — SOC DEEP DIVE (DEFENSIVE)
+
+> 🧠 Audience: SOC L1–L3  
+> 🛡️ Focus: Blue Team / Defensive  
+> 📌 Principle: Evidence > Assumptions  
+
+---
+
+## 📚 TABLE OF CONTENTS
+1. What is an Insider Threat  
+2. When SOC Should Suspect Insider Threat  
+3. SOC Mindset Before Starting  
+4. Primary Data Sources  
+5. Identity & Authentication Checks  
+6. Endpoint (EDR) Investigation  
+7. File Server / Share Access  
+8. DLP Investigation  
+9. Email Investigation  
+10. Cloud / SaaS Logs  
+11. USB & Removable Media  
+12. Behavioral Correlation  
+13. What NOT To Do  
+14. Escalation & Handoff  
+15. Documentation  
+16. Golden Rules  
+
+---
+
+### 🧠 1️⃣ WHAT IS AN INSIDER THREAT (SOC VIEW)
+
+🔸 Insider ≠ always malicious  
+🔸 Insider threat can be:
+
+- 🔹 Malicious insider (intentional data theft/sabotage)  
+- 🔹 Negligent insider (careless actions)  
+- 🔹 Compromised insider (account taken over)
+
+⚠️ **SOC rule**  
+🔸 Treat behavior, not the person, as suspicious  
+
+---
+
+### 🧠 2️⃣ WHEN SHOULD SOC SUSPECT INSIDER THREAT
+
+🚩 **COMMON TRIGGERS**
+
+- 🔹 Unusual data access/download  
+- 🔹 Access outside job role  
+- 🔹 After-hours activity  
+- 🔹 USB / cloud upload spike  
+- 🔹 Emailing data to personal account  
+- 🔹 Accessing systems before resignation  
+- 🔹 VPN login from unusual location  
+
+---
+
+### 🧠 3️⃣ SOC MINDSET BEFORE STARTING
+
+🔍 Ask these before touching tools:
+
+- 🔹 Is this new behavior for this user?  
+- 🔹 Is this role-appropriate access?  
+- 🔹 Is there a business reason?  
+- 🔹 Is activity repeated or one-time?  
+- 🔹 Is there data movement involved?  
+
+🧠 Insider threat = pattern over time, not one alert  
+
+---
+
+### 🧠 4️⃣ PRIMARY DATA SOURCES (DO NOT SKIP)
+
+📊 **Source → Purpose**
+
+- 🔹 Identity (AD / IdP) → Who accessed  
+- 🔹 EDR → What ran  
+- 🔹 DLP → What data moved  
+- 🔹 Email → Where data went  
+- 🔹 Cloud logs → SaaS abuse  
+- 🔹 File server logs → What files  
+- 🔹 VPN logs → Where from  
+
+---
+
+### 🧠 5️⃣ IDENTITY & AUTHENTICATION CHECK (FIRST STEP)
+
+📍 **WHERE TO LOOK**
+
+- 🔹 Active Directory  
+- 🔹 Azure AD / Google Workspace  
+
+🔍 **WHAT TO CHECK**
+
+- 🔹 Login time  
+- 🔹 Login location  
+- 🔹 MFA status  
+- 🔹 New device/browser  
+- 🔹 Privilege changes  
+
+🪟 **WINDOWS EVENT IDs**
+
+- 🔹 4624 – Successful logon  
+- 🔹 4625 – Failed logon  
+- 🔹 4672 – Privileged logon  
+- 🔹 4728 – Added to privileged group  
+- 🔹 4732 – Added to local admin  
+
+❓ **QUESTIONS TO ASK**
+
+- 🔹 Login during non-working hours?  
+- 🔹 VPN + office login overlap?  
+- 🔹 Recent role change?  
+
+---
+
+### 🧠 6️⃣ ENDPOINT (EDR) INVESTIGATION
+
+💡 **WHY EDR IS CRITICAL**
+
+- 🔹 Insiders rarely drop malware  
+- 🔹 Legit tools are abused  
+
+🔍 **WHAT TO CHECK**
+
+- 🔹 Process tree  
+- 🔹 Command line  
+- 🔹 File access  
+- 🔹 USB activity  
+- 🔹 Archive creation  
+
+🚨 **RED FLAG COMMANDS**
+
+- 🔹 powershell Compress-Archive  
+- 🔹 robocopy / xcopy  
+- 🔹 rar.exe / 7z.exe  
+- 🔹 scp / winscp  
+
+📁 **SUSPICIOUS PATHS**
+
+- 🔹 `C:\Users\<user>\Downloads`  
+- 🔹 `C:\Users\<user>\Desktop`  
+- 🔹 `C:\Users\<user>\AppData\Roaming`  
+
+---
+
+### 🧠 7️⃣ FILE SERVER / SHARE ACCESS
+
+📍 **WHERE TO LOOK**
+
+- 🔹 Windows File Server logs  
+- 🔹 NAS audit logs  
+
+🔍 **WHAT TO CHECK**
+
+- 🔹 Mass file access  
+- 🔹 Unrelated folder access  
+- 🔹 Copy vs read behavior  
+
+🪟 **WINDOWS EVENT IDs**
+
+- 🔹 4663 – Object access  
+- 🔹 5140 – Network share access  
+
+🚩 **RED FLAGS**
+
+- 🔹 HR/Finance access  
+- 🔹 High-volume reads  
+- 🔹 Pre-resignation access  
+
+---
+
+### 🧠 8️⃣ DLP INVESTIGATION (MOST IMPORTANT)
+
+📦 **WHAT DLP SHOWS**
+
+- 🔹 What data  
+- 🔹 Where it went  
+- 🔹 How it left  
+
+🚚 **COMMON EXFIL PATHS**
+
+- 🔹 Cloud storage  
+- 🔹 Email attachments  
+- 🔹 USB  
+- 🔹 Web uploads  
+
+⚠️ One violation = warning  
+🚨 Repeated violations = insider pattern  
+
+---
+
+### 🧠 9️⃣ EMAIL INVESTIGATION
+
+📧 **WHAT TO CHECK**
+
+- 🔹 Attachments  
+- 🔹 Forwarding rules  
+- 🔹 External recipients  
+
+🚩 **RED FLAGS**
+
+- 🔹 Password-protected archives  
+- 🔹 Draft-only emails  
+- 🔹 Auto-forwarding  
+
+---
+
+### 🧠 🔟 CLOUD / SAAS LOGS
+
+☁️ **WHAT TO CHECK**
+
+- 🔹 Mass downloads  
+- 🔹 API usage  
+- 🔹 Sharing links  
+- 🔹 Unmanaged devices  
+
+🚩 **RED FLAGS**
+
+- 🔹 Entire drive downloads  
+- 🔹 Public sharing enabled  
+- 🔹 After-hours access  
+
+---
+
+### 🧠 1️⃣1️⃣ USB & REMOVABLE MEDIA
+
+🔌 **EVENTS**
+
+- 🔹 Event ID 2003 – USB inserted  
+- 🔹 Event ID 4663 – File copied  
+
+❓ **QUESTIONS**
+
+- 🔹 USB policy allowed?  
+- 🔹 New device?  
+- 🔹 Encryption used?  
+
+---
+
+### 🧠 1️⃣2️⃣ BEHAVIORAL CORRELATION (KEY STEP)
+
+🧩 Correlate:
+
+- 🔹 Identity + EDR + DLP + Email + Cloud  
+
+📌 **Example Pattern**
+
+- 🔹 Late login  
+- 🔹 Finance access  
+- 🔹 File compression  
+- 🔹 Personal cloud upload  
+- 🔹 Resignation email  
+
+🚨 Insider threat confirmed  
+
+---
+
+### 🧠 1️⃣3️⃣ WHAT NOT TO DO
+
+❌ Don’t accuse  
+❌ Don’t alert user  
+❌ Don’t rely on one alert  
+❌ Don’t block unless active exfil  
+
+🛡️ SOC = evidence collection  
+
+---
+
+### 🧠 1️⃣4️⃣ ESCALATION & HANDOFF
+
+🚨 **ESCALATE WHEN**
+
+- 🔹 Confirmed data movement  
+- 🔹 Repeated violations  
+- 🔹 Privilege abuse  
+
+👥 **STAKEHOLDERS**
+
+- 🔹 SOC Lead  
+- 🔹 Legal  
+- 🔹 HR  
+- 🔹 GRC  
+
+---
+
+### 🧠 1️⃣5️⃣ DOCUMENTATION
+
+📝 Report must include:
+
+- 🔹 Timeline  
+- 🔹 Accessed data  
+- 🔹 Exfil path  
+- 🔹 Tools used  
+- 🔹 Evidence paths  
+- 🔹 Impact  
+
+---
+
+## 🧠 FINAL SOC INSIDER THREAT GOLDEN RULES
+
+🔑 Looks normal  
+🔑 Uses legit tools  
+🔑 Behavior matters  
+🔑 One alert ≠ incident  
+🔑 Correlation = truth
