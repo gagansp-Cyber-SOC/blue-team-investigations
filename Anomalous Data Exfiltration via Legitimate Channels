@@ -1,0 +1,347 @@
+🚨☁️ Anomalous Data Exfiltration via Legitimate Channel
+
+> ⚠️ The most dangerous data exfiltration does not look malicious
+✅ It looks normal, allowed, and business-like
+☁️ It hides inside trusted services and valid user activity
+
+
+---
+
+🧠📌 WHAT THIS SCENARIO IS ABOUT
+
+🔍 This scenario detects unusual outbound data uploads
+🧑‍💻 Originating from a legitimate user workstation
+☁️ Going to a legitimate external cloud service
+
+✅ Legitimate user
+✅ Legitimate service
+✅ Allowed protocol (HTTPS)
+
+🚩 Only behavior + context + deviation expose the threat
+
+
+---
+
+👤🪪 USER CONTEXT (START HERE — ALWAYS)
+
+Before touching logs, understand the user first 👇
+
+🔎 WHAT TO CHECK
+
+👤 Username
+🏢 Department
+🧑‍💼 Role & responsibilities
+🔐 Access level
+🔄 Recent role change
+🚪 Resignation / notice period
+
+📍 WHERE TO CHECK
+
+🧾 IAM / Active Directory / Entra ID
+🧑‍🤝‍🧑 HR offboarding records
+🎫 Ticketing / Change management systems
+
+🧠 WHY TO CHECK
+
+⚖️ User role defines what is normal
+👨‍💻 Developer uploading 5GB ≠ 👩‍💼 HR uploading 5GB
+🚨 User context can instantly raise severity
+
+
+---
+
+⏰🚨 WHEN TO LOOK (TRIGGER CONDITIONS)
+
+Start investigation if any one occurs 👇
+
+📈 Sudden outbound upload spike
+🌙 Activity outside business hours
+🆕 First-time use of a cloud service
+📂 Large file access ➜ immediate upload
+🚪 Resignation / offboarding signals
+⌨️ Upload via scripts or sync tools
+
+🧠 WHY
+
+🎯 Attackers prefer quiet hours
+☁️ Trusted services avoid suspicion
+🔑 Valid credentials bypass controls
+
+
+---
+
+📍🔍 WHERE TO LOOK (DATA SOURCES)
+
+
+---
+
+🌐🧱 NETWORK / PROXY LOGS (PRIMARY SIGNAL)
+
+🛠️ TOOLS
+
+🔥 FortiGate
+🔥 Palo Alto
+🔥 Zscaler
+🔥 Netskope
+🔥 Secure Web Gateway
+
+🔎 WHAT TO CHECK
+
+➡️ Traffic direction → Outbound
+📤 HTTP method → POST / PUT
+📦 Bytes sent
+🌐 Destination domain
+⏰ Timestamp
+👤 User
+
+📍 WHERE TO CHECK
+
+📁 Firewall logs
+📁 Proxy logs
+📁 CASB traffic logs
+
+📄 REAL SAMPLE LOG
+
+date=2026-01-05
+time=23:48:12
+srcip=10.10.25.44
+dst_domain=drive.google.com
+method=POST
+bytes_sent=4.6GB
+user=gagan.s
+action=allowed
+
+🚩 High bytes sent
+🚩 Cloud storage destination
+🚩 Late-night activity
+
+🧠 WHY TO CHECK
+
+☁️ HTTPS uploads are the top modern exfil path
+
+
+---
+
+🖥️🧠 ENDPOINT / EDR TELEMETRY
+
+🛠️ TOOLS
+
+🛡️ CrowdStrike
+🛡️ Microsoft Defender for Endpoint
+🛡️ Carbon Black
+
+📍 WHERE TO CHECK
+
+Event Viewer
+→ Windows Logs
+→ Security
+
+🆔 WHAT TO CHECK (EVENT IDS)
+
+🧩 4688 → Process creation
+📂 4663 → File access
+🔐 4624 → User logon
+⚠️ 4672 → Privileged session
+
+📄 REAL PROCESS LOG
+
+EventID: 4688
+NewProcessName: C:\Program Files\Google\DriveFS\GoogleDriveFS.exe
+ParentProcess: explorer.exe
+User: gagan.s
+
+📄 REAL FILE ACCESS LOG
+
+EventID: 4663
+ObjectName: C:\Users\gagan.s\Documents\Finance\Salary.xlsx
+AccessMask: ReadData
+ProcessName: GoogleDriveFS.exe
+
+🧠 WHY TO CHECK
+
+📌 Confirms what file
+📌 Confirms which process
+📌 Confirms how upload happened
+
+
+---
+
+🔐🪪 AUTHENTICATION / IDENTITY LOGS
+
+🛠️ TOOLS
+
+🔑 Active Directory
+🔑 Entra ID
+🔑 Okta
+🔑 Google Workspace
+
+🔎 WHAT TO CHECK
+
+⏰ Logon time
+🧑‍💻 Logon type
+💻 Workstation name
+
+📍 WHERE TO CHECK
+
+Event Viewer → Security → Event ID 4624
+
+📄 REAL LOG
+
+User: gagan.s
+LogonType: 2
+LogonTime: 23:32
+Workstation: WS-044
+
+🧠 WHY TO CHECK
+
+🌙 Late-night interactive logons
+🚨 Increase insider-risk probability
+
+
+---
+
+☁️🔐 CLOUD / CASB / DLP LOGS
+
+🛠️ TOOLS
+
+☁️ Netskope
+☁️ Microsoft Purview
+☁️ CASB
+☁️ DLP
+
+🔎 WHAT TO CHECK
+
+✅ Approved vs ❌ unapproved app
+🏢 Corporate vs 👤 personal account
+🆕 First-time usage
+📄 File sensitivity
+
+📄 REAL CASB LOG
+
+App: Google Drive
+Activity: Upload
+AccountType: Personal
+File: Salary.xlsx
+User: gagan.s
+
+🚩 Personal account = HIGH RISK
+
+🧠 WHY TO CHECK
+
+🎯 Personal cloud is a preferred exfil route
+
+
+---
+
+⌨️🛠️ HOW TO CHECK (ENDPOINT COMMANDS)
+
+🔗 ACTIVE CONNECTIONS
+
+netstat -ano | findstr ESTABLISHED
+
+🧰 SUSPICIOUS TOOLS
+
+tasklist | findstr /i "rclone winscp powershell python"
+
+📜 POWERSHELL HISTORY
+
+$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt
+
+🧠 WHY TO CHECK
+
+📤 CLI tools are used for silent uploads
+
+
+---
+
+📊📈 AGGREGATION & BASELINE ANALYSIS
+
+🔍 AGGREGATE BY
+
+👤 User
+💻 Host
+☁️ Destination
+
+📏 MEASURE
+
+📦 Bytes uploaded
+⏳ Session duration
+🔁 Frequency
+
+🚨 TRIGGER WHEN
+
+📈 3×–5× baseline deviation
+🆕 New destination
+🌙 Off-hours activity
+
+🧠 WHY
+
+❌ Static thresholds fail
+✅ Behavioral baselines work
+
+
+---
+
+🔗🧠 CORRELATION IDEAS
+
+📤 Large upload
+➕ ☁️ Personal cloud
+➕ 🌙 Off-hours
+
+📂 Mass file access
+➕ ⏱️ Upload within minutes
+
+⌨️ PowerShell execution
+➕ 🌐 Network upload
+
+
+---
+
+⚖️🚨 DECISION LOGIC
+
+🚨 ESCALATE
+
+📄 Sensitive files
+👤 Personal destination
+🌙 Off-hours
+❌ Role mismatch
+
+👀 MONITOR
+
+⚠️ One-time spike
+📋 Business justification pending
+
+✅ CLOSE
+
+✔️ Approved sync
+✔️ Expected behavior
+✔️ Baseline matches
+
+
+---
+
+❌🕳️ DETECTION GAPS (REALITY)
+
+🐌 Slow low-volume exfiltration
+🔐 Encrypted archives
+🔁 API-based uploads
+📦 Long-term data staging
+
+🧠 Mitigation
+📊 Behavior analytics
+📂 File access correlation
+👤 User risk scoring
+
+
+---
+
+🧠🔥 FINAL TAKEAWAY
+
+🔥 Legitimate tools are modern exfil paths
+🔥 Destination reputation is weak
+🔥 Context beats volume
+🔥 User behavior defines severity
+
+> 💬 Not all alerts are incidents
+🔍 But every alert deserves context-driven investigation
+
