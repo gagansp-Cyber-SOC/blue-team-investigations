@@ -1,0 +1,353 @@
+# 🔐📤 SENSITIVE DATA EXFILTRATION — COMPLETE SOC INVESTIGATION PLAYBOOK
+
+---
+
+## 🧠📘 DEFINITION — WHAT SENSITIVE DATA EXFILTRATION ACTUALLY IS
+
+Sensitive data exfiltration occurs when **confidential, regulated, or business-critical data** is **copied, transferred, uploaded, or leaked** outside authorized boundaries.
+
+This includes:
+
+* 📂 PII, PCI, PHI, financial data
+* 📄 Internal documents, source code, IP
+* 📧 Email attachments
+* ☁️ Cloud storage uploads
+* 🌐 External servers or personal devices
+
+🚨 Exfiltration does **NOT** require malware
+🚨 Legitimate tools and users are commonly abused
+🚨 Most real cases use **HTTPS + trusted platforms**
+
+---
+
+## ⏱️📏 SLA — WHY RESPONSE SPEED MATTERS
+
+🚨 High confidence exfiltration → **Investigate immediately (≤ 1 hour)**
+⚠️ Suspicious activity → **Same business day**
+
+🧠 Once data leaves the environment, **you cannot pull it back**
+🧠 Early detection limits legal, financial, and reputational damage
+
+---
+
+## 🧭🕐 PHASE 1 — ALERT INTAKE & CONTEXT VALIDATION
+
+### ❓🧠 WHY THIS PHASE IS CRITICAL
+
+Most false positives happen here due to:
+
+* Legitimate uploads
+* Backup jobs
+* Sync clients
+* Developer workflows
+
+If you misclassify here:
+❌ You escalate normal business
+❌ Or miss real insider threats
+
+---
+
+### 🎯🔍 WHAT THIS ALERT IS TRYING TO DETECT
+
+One or more of the following:
+
+* 📈 Unusual outbound data volume
+* 📂 Mass file access followed by upload
+* ☁️ Upload to personal or unapproved destination
+* 🌙 Off-hours transfer
+* 👤 User behavior deviation
+
+---
+
+### 📍🔎 WHERE TO LOOK FIRST
+
+* 📊 SIEM alert payload
+* ⚙️ Detection rule logic
+* 📐 Thresholds / baselines
+* 👤 User + host entities
+
+---
+
+### 📋📊 WHAT FIELDS TO CONFIRM IMMEDIATELY
+
+👤 Username → data owner
+💻 Hostname → data source
+📂 File names / paths → sensitivity
+🌐 Destination domain / IP → exfil path
+📦 Bytes transferred → scale
+⏰ Timestamp → business vs off-hours
+⚙️ Process / application → tool used
+
+---
+
+### 🧪📄 SAMPLE SIEM ALERT (ABSTRACTED)
+
+```json
+{
+  "alert": "Sensitive Data Upload Detected",
+  "user": "alice",
+  "host": "LAPTOP-23",
+  "destination": "drive.google.com",
+  "bytes_out": 4.8GB,
+  "files_accessed": 312,
+  "time": "23:47 IST",
+  "classification": "PII"
+}
+```
+
+🚩 Volume + sensitivity + timing = **high risk**
+
+---
+
+## 👤🧠 PHASE 2 — USER & BUSINESS CONTEXT
+
+### ❓🧠 WHY USER CONTEXT MATTERS
+
+The **same action** can be:
+
+* ✅ Legitimate for a developer
+* 🚨 Critical for HR or Finance
+
+---
+
+### 📍📂 WHERE TO CHECK
+
+* 👥 IAM / AD / Entra ID
+* 🧾 HR role & access
+* 🎫 Ticketing / change records
+
+---
+
+### 📋🔍 WHAT TO CHECK
+
+👤 Role & department
+🔐 Privilege level
+📅 Notice period / offboarding
+📂 Normal data access pattern
+
+🚩 Resigning user + data upload = **insider risk**
+
+---
+
+## 📂🔍 PHASE 3 — FILE & DATA ANALYSIS
+
+### ❓🧠 WHY THIS PHASE EXISTS
+
+Exfiltration is about **what data**, not just how much.
+
+---
+
+### 📍📂 WHERE TO LOOK
+
+* 🖥️ Endpoint file access logs
+* 🔐 DLP logs
+* 📊 EDR telemetry
+
+---
+
+### 📋🔍 WHAT TO CHECK
+
+📄 File names & extensions
+📂 Directory paths
+🏷️ Classification labels
+📊 File count vs normal
+
+---
+
+### 🧪📄 SAMPLE FILE ACCESS LOG (WINDOWS 4663)
+
+```
+Event ID: 4663
+Object Name: C:\Users\alice\Documents\HR\Salary.xlsx
+Access Mask: ReadData
+Process Name: chrome.exe
+```
+
+🚩 Sensitive folder + read burst = staging
+
+---
+
+## 🖥️⚙️ PHASE 4 — PROCESS & TOOL ATTRIBUTION
+
+### ❓🧠 WHY THIS MATTERS
+
+Attackers abuse **legitimate tools** to avoid detection.
+
+---
+
+### 📍📂 WHERE TO LOOK
+
+* 🛡️ EDR console
+* 🪟 Event Viewer → Security (4688)
+
+📄 Log file:
+
+```
+C:\Windows\System32\winevt\Logs\Security.evtx
+```
+
+---
+
+### 📋🔍 WHAT TO CHECK
+
+⚙️ Process name
+📍 Execution path
+👨‍👦 Parent process
+⌨️ Command line
+
+---
+
+### 🧪📄 SAMPLE PROCESS LOG
+
+```
+Event ID: 4688
+New Process: powershell.exe
+Command Line: powershell.exe Invoke-WebRequest -Uri https://dropbox.com/upload
+User: alice
+```
+
+🚩 LOLBin + network = **covert exfil**
+
+---
+
+## 🌐📤 PHASE 5 — NETWORK & DESTINATION ANALYSIS
+
+### ❓🧠 WHY NETWORK IS KEY
+
+All exfiltration leaves the network.
+
+---
+
+### 📍📂 WHERE TO LOOK
+
+* 🔥 Firewall logs
+* 🌐 Proxy / SWG
+* ☁️ CASB
+
+---
+
+### 📋🔍 WHAT TO CHECK
+
+🌐 Destination domain / IP
+📦 Bytes out
+🔐 TLS / HTTPS usage
+🕒 Session duration
+
+---
+
+### 🧪📄 SAMPLE PROXY LOG
+
+```
+src_ip=10.0.1.44
+user=alice
+dst_domain=drive.google.com
+method=POST
+bytes_out=4.8GB
+time=23:48
+```
+
+🚩 POST + cloud + off-hours = **classic exfil**
+
+---
+
+## ☁️🔐 PHASE 6 — CLOUD / EMAIL / DLP VALIDATION
+
+### ❓🧠 WHY THIS PHASE EXISTS
+
+Most sensitive data leaves via:
+
+* ☁️ Cloud storage
+* 📧 Email
+* 🔗 File sharing links
+
+---
+
+### 📍📂 WHERE TO LOOK
+
+* ☁️ CASB logs
+* 📧 Email gateway
+* 🔐 DLP console
+
+---
+
+### 📋🔍 WHAT TO CHECK
+
+🏢 Corporate vs personal account
+📄 File sensitivity
+👥 External recipients
+🔁 Share permissions
+
+---
+
+### 🧪📄 SAMPLE CASB LOG
+
+```
+App: Google Drive
+Action: Upload
+Account Type: Personal
+File: Salary.xlsx
+User: alice
+```
+
+🚨 Personal cloud + sensitive file = **high confidence incident**
+
+---
+
+## 🔁🧠 PHASE 7 — TIMELINE & CORRELATION
+
+### ❓🧠 WHY TIMELINE IS TRUTH
+
+Single logs lie. Timelines don’t.
+
+---
+
+### 📍📂 HOW TO BUILD
+
+* 👤 Pivot on user
+* 💻 Pivot on host
+* 🌐 Pivot on destination
+* ⏱️ Minimum 24–72 hours
+
+---
+
+### 📋🔍 WHAT TO CORRELATE
+
+📂 File access → upload
+🔐 Login → data movement
+⚙️ Script execution → network
+
+---
+
+## ⚖️🚨 PHASE 8 — CLASSIFICATION & RESPONSE
+
+### 📊🧠 DECISION LOGIC
+
+| Scenario                   | Verdict  | Action   |
+| -------------------------- | -------- | -------- |
+| Approved upload            | Benign   | Close    |
+| Role-justified             | Monitor  | Document |
+| Personal cloud + sensitive | Incident | Escalate |
+| Insider indicators         | Incident | IR       |
+
+---
+
+### 🛠️🚨 RESPONSE ACTIONS
+
+⛔ Block destination
+🔐 Revoke sessions
+🔑 Reset credentials
+📦 Preserve evidence
+📣 Legal / HR notify
+
+---
+
+## 🧠🔥 FINAL SOC TRUTH
+
+📤 Data exfiltration rarely looks malicious
+☁️ Legitimate tools are the biggest risk
+👤 Context defines severity
+⏱️ Once data is gone, damage is permanent
+
+> **Exfiltration is not detected by volume alone —
+> it is detected by behavior, context, and intent.**
+
