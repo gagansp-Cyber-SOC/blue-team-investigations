@@ -1,0 +1,331 @@
+
+# 🔌📀 UNAUTHORIZED USB USAGE / COPY TO REMOVABLE MEDIA
+
+## COMPLETE SOC INVESTIGATION PLAYBOOK
+
+---
+
+## 🧠📘 WHAT THIS ALERT REALLY MEANS
+
+Unauthorized USB usage indicates that **data was accessed, copied, or attempted to be copied** from a corporate endpoint to a **removable storage device** such as:
+
+• USB flash drives
+• External hard disks
+• SD cards
+• Mobile phones in storage mode
+
+🚨 This alert does **NOT automatically mean malicious activity**
+🚨 But it always represents **data loss risk**
+🚨 USB is a **top insider-threat and exfiltration vector**
+
+---
+
+## 🚨 WHY THIS ALERT IS HIGH RISK
+
+• Data leaves the corporate boundary silently
+• No network logs required (offline exfiltration)
+• Often bypasses CASB, proxy, firewall
+• Used in insider theft and pre-resignation cases
+• Used by attackers when network exfiltration is blocked
+
+Once data is copied to USB, **recovery is impossible**
+
+---
+
+## ⏱️📏 SLA — WHEN TO INVESTIGATE
+
+🚨 Sensitive data + USB copy → **Immediate (≤ 1 hour)**
+⚠️ Non-sensitive data → **Same business day**
+
+Delay increases **legal, compliance, and IP loss impact**
+
+---
+
+## 🧭🕐 PHASE 1 — ALERT INTAKE & VALIDATION
+
+### ❓🧠 WHY THIS PHASE MATTERS
+
+USB alerts are noisy due to:
+• IT support usage
+• Backup operations
+• Legitimate file transfers
+
+If you don’t validate early:
+❌ You escalate IT work
+❌ Or miss insider theft
+
+---
+
+### 📍🔎 WHERE THIS ALERT COMES FROM
+
+• DLP endpoint agent
+• EDR device control
+• OS security logs
+• SIEM correlation rules
+
+---
+
+### 📋🔍 WHAT TO CONFIRM IMMEDIATELY
+
+👤 Username → who copied data
+💻 Hostname → which endpoint
+🔌 USB device ID → which device
+📂 Files copied → what data
+🏷️ Data type → PII / PCI / PHI / IP
+⏰ Time → business vs off-hours
+⚙️ Process → explorer, cmd, script
+
+---
+
+### 🧪📄 SAMPLE USB ALERT (REALISTIC)
+
+```
+Alert: Copy to Removable Media
+User: CORP\gagan
+Host: LAPTOP-17
+Device: SanDisk USB 3.2
+Serial: 4C530001230412345
+Files Copied: 145
+Total Size: 2.3 GB
+Classification: PII
+Time: 22:41 IST
+```
+
+🚩 Off-hours + sensitive data = escalation trigger
+
+---
+
+## 🔌📀 PHASE 2 — USB DEVICE IDENTIFICATION
+
+### ❓🧠 WHY DEVICE DETAILS MATTER
+
+Identifying the device tells you:
+• Personal vs corporate USB
+• Repeated usage
+• Evidence for HR / legal
+
+---
+
+### 📍📂 WHERE TO LOOK (WINDOWS)
+
+**Registry**
+
+```
+HKLM\SYSTEM\CurrentControlSet\Enum\USBSTOR
+```
+
+**Mounted devices**
+
+```
+HKLM\SYSTEM\MountedDevices
+```
+
+---
+
+### 💻🔍 COMMANDS TO CHECK USB HISTORY
+
+```
+reg query HKLM\SYSTEM\CurrentControlSet\Enum\USBSTOR
+```
+
+```
+wmic logicaldisk where "drivetype=2" get DeviceID,VolumeName
+```
+
+---
+
+### 🧪📄 SAMPLE USB ENUMERATION
+
+```
+USBSTOR\Disk&Ven_SanDisk&Prod_Ultra&Rev_1.00
+SerialNumber: 4C530001230412345
+```
+
+🚩 Unknown USB serial = personal device
+
+---
+
+## 📂🧠 PHASE 3 — FILE & DATA ANALYSIS (WHAT WAS COPIED)
+
+### ❓🧠 WHY THIS PHASE EXISTS
+
+Volume alone is meaningless
+**Data sensitivity defines severity**
+
+---
+
+### 📍📂 WHERE TO LOOK
+
+• DLP file evidence
+• Endpoint file access logs
+• EDR telemetry
+
+---
+
+### 🪟 WINDOWS FILE ACCESS LOG (4663)
+
+📍 Path
+
+```
+Event Viewer
+→ Windows Logs
+→ Security
+```
+
+📄 Log file
+
+```
+C:\Windows\System32\winevt\Logs\Security.evtx
+```
+
+---
+
+### 🧪📄 SAMPLE FILE ACCESS LOG
+
+```
+Event ID: 4663
+Object Name: C:\Users\gagan\Documents\Finance\Payroll.xlsx
+Access Mask: ReadData
+Process Name: explorer.exe
+```
+
+🚩 Sensitive folder read before USB copy = staging
+
+---
+
+## ⚙️🖥️ PHASE 4 — PROCESS & TOOL ATTRIBUTION
+
+### ❓🧠 WHY THIS MATTERS
+
+How files were copied tells intent:
+• Manual drag-drop
+• Automated script
+• Malware
+
+---
+
+### 📍📂 WHERE TO LOOK
+
+• EDR process tree
+• Event ID 4688
+
+---
+
+### 🧪📄 SAMPLE PROCESS LOG
+
+```
+Event ID: 4688
+Process: explorer.exe
+Parent: explorer.exe
+Command Line: C:\Windows\explorer.exe
+```
+
+🟢 Typical manual copy
+
+---
+
+### 🔴 SUSPICIOUS PROCESS EXAMPLE
+
+```
+Process: powershell.exe
+Command Line: Copy-Item C:\Users\gagan\Documents\* E:\ -Recurse
+```
+
+🚩 Scripted copy = high risk
+
+---
+
+## ⏰🌙 PHASE 5 — TIME & BEHAVIOR CONTEXT
+
+### ❓🧠 WHY TIME MATTERS
+
+Most insider activity happens:
+• Late night
+• Weekends
+• After resignation notice
+
+---
+
+### 📋🔍 WHAT TO CHECK
+
+⏰ Time of activity
+📅 User notice period
+📊 Historical USB usage
+
+---
+
+### 🧪📄 BEHAVIORAL RED FLAG
+
+```
+Normal USB usage: None
+Current activity: 2.3 GB at 22:41
+```
+
+🚩 First-time USB usage + data copy = insider risk
+
+---
+
+## 🔁🧠 PHASE 6 — CORRELATION & FOLLOW-UP ACTIVITY
+
+### ❓🧠 WHY CORRELATION IS REQUIRED
+
+USB copy is often followed by:
+• Email forwarding
+• Cloud uploads
+• Account resignation
+
+---
+
+### 📍📂 WHAT TO CORRELATE
+
+• Login events (4624)
+• Email activity
+• Cloud uploads
+• Prior DLP alerts
+
+---
+
+## ⚖️🚨 PHASE 7 — CLASSIFICATION & DECISION
+
+### 📊🧠 DECISION LOGIC
+
+| Scenario                      | Verdict        |
+| ----------------------------- | -------------- |
+| Corporate USB + approved task | Benign         |
+| Non-sensitive files           | Monitor        |
+| Sensitive data + personal USB | Incident       |
+| Repeat USB usage              | Insider threat |
+| Scripted copy                 | Incident       |
+
+---
+
+## 🛠️🚨 PHASE 8 — RESPONSE ACTIONS
+
+### 🚨 IMMEDIATE ACTIONS
+
+⛔ Block USB device
+🔐 Disable user account (if required)
+📦 Preserve logs & evidence
+🧾 Notify data owner
+
+---
+
+### 🚨 IF CONFIRMED INCIDENT
+
+🔑 Force password reset
+📣 Notify HR / Legal / Compliance
+🔍 Full endpoint investigation
+📄 Regulatory assessment
+
+---
+
+## 🧠🔥 FINAL SOC TRUTH
+
+🔌 USB exfiltration is **silent and fast**
+📀 Legitimate access does **not mean legitimate intent**
+👤 Context defines guilt
+⏱️ Once data is copied, loss is permanent
+
+> **Unauthorized USB usage is not an IT issue —
+> it is a data security incident until proven otherwise.**
+
