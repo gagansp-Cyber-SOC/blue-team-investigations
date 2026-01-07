@@ -1,0 +1,307 @@
+
+
+# 🔐 FILE ENCRYPTION BEFORE UPLOAD (STAGING) — SOC INVESTIGATION STEPS
+
+---
+
+## 🧠 WHAT THIS ACTIVITY MEANS
+
+File encryption before upload is a **staging technique** where data is **compressed or encrypted locally** before being transferred externally.
+
+Attackers and insiders do this to:
+
+* 🚫 Bypass DLP content inspection
+* 📦 Reduce file size
+* 🔒 Hide sensitive content
+* ☁️ Upload data without triggering pattern-based detection
+
+This behavior is **rare in normal business workflows** and is a **strong pre-exfiltration signal**.
+
+---
+
+## 🚨 WHY THIS IS HIGH RISK
+
+* Encrypted files cannot be inspected by DLP
+* Legitimate tools (7zip, WinRAR, PowerShell) are abused
+* Often followed by cloud upload, email, or USB copy
+* Common in insider theft and advanced data exfiltration
+
+If encryption + external transfer is confirmed → **treat as incident until disproven**.
+
+---
+
+## ⏱️ WHEN TO INVESTIGATE
+
+* 🔴 Encryption followed by upload within minutes
+* 🔴 Encryption during off-hours
+* 🔴 First-time encryption behavior by user
+* 🔴 Encryption of sensitive directories (Finance, HR, SourceCode)
+
+---
+
+## 🧭 PHASE 1 — ALERT INTAKE & INITIAL CONTEXT
+
+### WHERE THIS IS DETECTED
+
+* EDR behavioral alerts
+* DLP alerts showing “Encrypted / Uninspectable file”
+* CASB showing encrypted archive upload
+* SIEM correlation (archive creation + upload)
+
+---
+
+### WHAT TO CONFIRM IMMEDIATELY
+
+* 👤 User and host
+* 📂 File type created (.zip, .7z, .rar, .aes, .gpg)
+* 🕒 Time of encryption
+* ⚙️ Process used
+* 🌐 Any upload or copy event after encryption
+
+---
+
+### SAMPLE ALERT CONTEXT
+
+```
+Alert: Encrypted Archive Created
+User: gagan@corp.com
+Host: LAPTOP-21
+File: finance_data.7z
+Process: 7z.exe
+Time: 23:18 IST
+```
+
+🚩 Off-hours + encryption = staging indicator
+
+---
+
+## 🧠 PHASE 2 — FILE & PATH ANALYSIS
+
+### WHY THIS MATTERS
+
+The **location and naming** of encrypted files often reveal intent.
+
+---
+
+### WHERE TO LOOK (WINDOWS PATHS)
+
+Common staging locations:
+
+```
+C:\Users\<user>\AppData\Local\Temp\
+C:\Users\<user>\Downloads\
+C:\Users\<user>\Desktop\
+C:\Users\Public\
+C:\ProgramData\
+```
+
+Sensitive source paths:
+
+```
+C:\Users\<user>\Documents\Finance\
+C:\Users\<user>\Documents\HR\
+D:\SourceCode\
+\\FileServer\Shared\
+```
+
+---
+
+### WHAT TO CHECK
+
+* Original file locations
+* Encrypted file destination
+* File naming (generic vs meaningful)
+* File size before vs after encryption
+
+---
+
+### SAMPLE FILE EVENT (WINDOWS 4663)
+
+```
+Event ID: 4663
+Object Name: C:\Users\gagan\Documents\Finance\Payroll.xlsx
+Access: ReadData
+Process: 7z.exe
+```
+
+🚩 Sensitive file read immediately before archive creation
+
+---
+
+## ⚙️ PHASE 3 — PROCESS & COMMAND-LINE ANALYSIS
+
+### WHY THIS PHASE IS CRITICAL
+
+Command lines expose **attacker intent**, not just activity.
+
+---
+
+### WHERE TO LOOK
+
+* EDR process tree
+* Event Viewer → Security → Event ID 4688
+
+📄 Log file:
+
+```
+C:\Windows\System32\winevt\Logs\Security.evtx
+```
+
+---
+
+### COMMON ENCRYPTION TOOLS & COMMANDS
+
+#### 7-Zip
+
+```
+7z.exe a finance.7z C:\Users\gagan\Documents\Finance\*
+```
+
+#### WinRAR
+
+```
+rar a -hpSecret123 data.rar C:\HR\
+```
+
+#### PowerShell
+
+```
+Compress-Archive -Path C:\Data\* -DestinationPath C:\Temp\data.zip
+```
+
+#### OpenSSL / GPG
+
+```
+gpg --encrypt payroll.xlsx
+```
+
+---
+
+### SAMPLE PROCESS LOG
+
+```
+Event ID: 4688
+Process: 7z.exe
+Command Line: 7z.exe a finance.7z C:\Users\gagan\Documents\Finance\*
+User: gagan
+```
+
+🚩 Recursive encryption of sensitive directory = strong staging signal
+
+---
+
+## 🌐 PHASE 4 — POST-ENCRYPTION TRANSFER VALIDATION
+
+### WHY THIS PHASE EXISTS
+
+Encryption alone is suspicious
+Encryption **followed by transfer** confirms exfiltration intent
+
+---
+
+### WHERE TO LOOK
+
+**Network**
+
+* Proxy / SWG logs
+* Firewall logs
+
+**Cloud**
+
+* CASB
+* Cloud audit logs
+
+**Endpoint**
+
+* USB copy alerts
+
+---
+
+### SAMPLE PROXY LOG
+
+```
+User: gagan
+Action: Upload
+File: finance.7z
+Destination: drive.google.com
+Method: POST
+Time: 23:21
+```
+
+🚨 Encryption → upload within minutes = confirmed staging + exfil attempt
+
+---
+
+## 🔁 PHASE 5 — TIMELINE CORRELATION
+
+### BUILD A CLEAR SEQUENCE
+
+```
+23:15 Sensitive files accessed
+23:18 Encrypted archive created
+23:21 Archive uploaded externally
+```
+
+Timeline confirms **intent**, not coincidence.
+
+---
+
+## 🧠 PHASE 6 — USER & BEHAVIOR CONTEXT
+
+### WHY CONTEXT DECIDES VERDICT
+
+Encryption is rare for normal users.
+
+Check:
+
+* Is encryption part of user’s role?
+* Any prior encryption behavior?
+* Resignation / offboarding signals?
+* Previous DLP or exfil alerts?
+
+🚩 First-time encryption + sensitive data = insider threat signal
+
+---
+
+## ⚖️ PHASE 7 — CLASSIFICATION LOGIC
+
+| Condition                               | Verdict   |
+| --------------------------------------- | --------- |
+| Encrypted test data, no transfer        | Monitor   |
+| Encryption + approved business workflow | Benign    |
+| Encryption of sensitive data            | High risk |
+| Encryption + external upload            | Incident  |
+| Encryption + USB copy                   | Incident  |
+
+---
+
+## 🚨 PHASE 8 — RESPONSE ACTIONS
+
+### IMMEDIATE ACTIONS
+
+* ⛔ Block upload / sharing
+* 🔐 Suspend user session
+* 📦 Preserve encrypted files & logs
+* 🧾 Notify data owner
+
+---
+
+### IF CONFIRMED INCIDENT
+
+* 🔑 Reset credentials
+* 🔄 Revoke active sessions
+* 📣 Notify Legal / HR / Compliance
+* 🔍 Full endpoint & user investigation
+
+---
+
+## 🧠 FINAL SOC TRUTH
+
+🔐 Encryption before upload is **not protection**
+📦 It is **staging**
+🚫 It is designed to defeat controls
+👤 Legitimate tools do not mean legitimate intent
+
+> **When sensitive data is encrypted before leaving the environment,
+> assume intent until evidence proves otherwise.**
+
