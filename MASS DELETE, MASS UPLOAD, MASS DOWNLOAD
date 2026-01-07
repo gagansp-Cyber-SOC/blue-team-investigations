@@ -1,0 +1,306 @@
+
+ MASS DELETE, MASS UPLOAD, MASS DOWNLOAD
+# 🧠 MASS DELETE / MASS UPLOAD / MASS DOWNLOAD
+
+## IDENTIFICATION & QUICK RESPONSE (SOC PLAYBOOK)
+
+---
+
+## 🧠 WHAT DOES “MASS ACTIVITY” MEAN
+
+Mass activity means
+➡️ Abnormally high number of file actions
+➡️ Within a short time window
+➡️ By a single user, host, or IP
+
+### Types
+
+• Mass delete
+• Mass upload
+• Mass download
+
+Normal users do few actions slowly
+Attackers or automated tools do many actions fast
+
+---
+
+## 🧠 DATA SOURCES WHERE THIS IS DETECTED
+
+Mass activity alerts come from
+• DLP / Proxy / CASB (Netskope, Zscaler)
+• Cloud apps (O365, Google Drive, SharePoint)
+• EDR (local file deletion)
+• File servers / NAS
+• SIEM correlation rules
+
+---
+
+## 🧠 1️⃣ MASS DOWNLOAD — IDENTIFICATION
+
+### 🔹 WHAT IT USUALLY MEANS
+
+Possible causes
+• Data exfiltration
+• Insider theft
+• Compromised account
+• Ransomware staging
+
+---
+
+### 📍 WHERE YOU SEE IT
+
+• CASB / Proxy logs
+• Cloud audit logs
+• DLP alerts
+
+---
+
+### 🔴 MALICIOUS LOG EXAMPLE (CLOUD)
+
+```
+User: gagan@company.com
+Action: FileDownload
+Application: OneDrive
+Files Downloaded: 3,250
+Time Window: 8 minutes
+Source IP: 185.231.154.22
+User Agent: curl/7.68.0
+```
+
+❌ WHY MALICIOUS
+• Too many files
+• Very short time
+• External IP
+• Non-browser user agent
+
+➡️ Likely data theft
+
+---
+
+### 🟢 LEGIT EXAMPLE
+
+```
+User: backup.service@company.com
+Action: FileDownload
+Files Downloaded: 1,500
+Duration: 3 hours
+Source IP: Internal
+```
+
+✔ Service account
+✔ Expected job
+✔ Long duration
+
+---
+
+### 🧠 QUICK RESPONSE — MASS DOWNLOAD
+
+1️⃣ Suspend user session
+2️⃣ Block external IP
+3️⃣ Disable account temporarily
+4️⃣ Check what files were accessed
+5️⃣ Check upload activity after download
+
+---
+
+## 🧠 2️⃣ MASS UPLOAD — IDENTIFICATION
+
+### 🔹 WHAT IT USUALLY MEANS
+
+Possible causes
+• Data exfiltration to personal cloud
+• Malware uploading stolen data
+• Insider sharing data
+
+---
+
+### 📍 WHERE YOU SEE IT
+
+• Proxy / CASB
+• DLP tools
+• Cloud audit logs
+
+---
+
+### 🔴 MALICIOUS LOG EXAMPLE (PROXY / CASB)
+
+```
+User: gagan@company.com
+Action: FileUpload
+Destination App: Dropbox (Personal)
+Files Uploaded: 820
+Total Size: 4.2 GB
+Time Window: 6 minutes
+```
+
+❌ WHY MALICIOUS
+• Personal cloud
+• Large volume
+• Short time
+• No business justification
+
+---
+
+### 🟢 LEGIT EXAMPLE
+
+```
+User: project.team@company.com
+Action: FileUpload
+Destination App: SharePoint
+Files Uploaded: 120
+Duration: 2 hours
+```
+
+✔ Corporate app
+✔ Normal pace
+✔ Expected behavior
+
+---
+
+### 🧠 QUICK RESPONSE — MASS UPLOAD
+
+1️⃣ Block upload action immediately
+2️⃣ Revoke active sessions
+3️⃣ Disable account (if suspicious)
+4️⃣ Preserve logs (legal / audit)
+5️⃣ Inform data owner / GRC
+
+---
+
+## 🧠 3️⃣ MASS DELETE — IDENTIFICATION
+
+### 🔹 WHAT IT USUALLY MEANS
+
+Possible causes
+• Ransomware pre-encryption
+• Insider sabotage
+• Compromised admin account
+
+---
+
+### 📍 WHERE YOU SEE IT
+
+• EDR
+• File server logs
+• Cloud audit logs
+
+---
+
+### 🔴 MALICIOUS LOG EXAMPLE (FILE SERVER)
+
+```
+User: CORP\gagan
+Action: Delete
+Files Deleted: 18,450
+Location: \\fileserver\Finance\
+Time Window: 4 minutes
+```
+
+❌ WHY MALICIOUS
+• Massive volume
+• Very fast
+• Sensitive folder
+
+---
+
+### 🔴 MALICIOUS LOG EXAMPLE (EDR)
+
+```
+Process: encryptor.exe
+Action: FileDelete
+Files Affected: 12,000
+Directory: C:\Users\
+```
+
+➡️ Ransomware indicator
+
+---
+
+### 🟢 LEGIT EXAMPLE
+
+```
+User: admin.backup
+Action: Delete
+Files Deleted: 500
+Purpose: Cleanup old backups
+Duration: 2 hours
+```
+
+✔ Admin task
+✔ Documented
+✔ Controlled pace
+
+---
+
+### 🧠 QUICK RESPONSE — MASS DELETE
+
+1️⃣ Isolate affected host immediately
+2️⃣ Stop deletion process
+3️⃣ Disable user account
+4️⃣ Protect backups
+5️⃣ Alert management
+
+---
+
+## 🧠 HOW SOC DECIDES LEGIT vs MALICIOUS (KEY LOGIC)
+
+Ask these questions 👇
+
+✔ Who is the user (human vs service)
+✔ From where (internal vs external IP)
+✔ How fast (minutes vs hours)
+✔ What tool (browser vs script)
+✔ What data (public vs sensitive)
+
+If **2–3 answers look wrong**
+➡️ Treat as security incident
+
+---
+
+## 🧠 COMMON ATTACK SCENARIOS (REAL WORLD)
+
+### 🔴 Scenario 1 — Phishing → Data Theft
+
+• Account compromised
+• Mass download from OneDrive
+• Upload to personal Dropbox
+
+### 🔴 Scenario 2 — Insider Threat
+
+• Employee resigning
+• Downloads entire project
+• Deletes shared folders
+
+### 🔴 Scenario 3 — Ransomware
+
+• Mass delete shadow copies
+• Mass file rename / encrypt
+• Followed by ransom note
+
+---
+
+## 🧠 WHAT NOT TO DO (VERY IMPORTANT)
+
+❌ Ignore because “user is trusted”
+❌ Assume backup job without validation
+❌ Close alert without checking IP + user agent
+❌ Delay response (minutes matter)
+
+---
+
+## 🧠 ONE-LINE SOC RESPONSE STATEMENT
+
+> “Mass file activity was detected based on an abnormal volume of file operations within a short time window, indicating potential data exfiltration or destructive activity. Immediate containment actions were taken to prevent further data loss.”
+
+---
+
+## 🧠 QUICK MEMORY CHEAT
+
+Mass activity =
+• Volume
+• Speed
+• Sensitivity
+• Context
+
+Not just “number of files”
+
