@@ -1,0 +1,325 @@
+# 🧠 LATERAL MOVEMENT — END-TO-END INVESTIGATION (SOC PLAYBOOK)
+
+Beginner-friendly, step-by-step guide for SOC L1/L2 analysts to investigate **lateral movement** using real logs, tools, and decision logic. Written to explain **from where to check, what to check, how to check, and how to differentiate normal vs attacker behavior**.
+
+---
+
+## 🔴 1️⃣ WHEN DO YOU SUSPECT LATERAL MOVEMENT
+
+### 🔍 What to observe
+
+You are not confirming an attack yet. You are identifying **unusual internal behavior patterns**.
+
+### 📍 Where to notice first
+
+* SIEM dashboards
+* EDR alerts
+* Firewall internal (east-west) traffic
+* Active Directory / Identity logs
+
+### 🚩 Common suspicious patterns
+
+#### 🔁 Same user across multiple hosts
+
+* Check in SIEM by filtering on **username**
+* Review number of destination hosts
+
+🟢 Normal
+
+* IT admin → few known servers
+* Predictable access pattern
+
+🔴 Attacker
+
+* Service or normal user account
+* Access to many hosts within minutes
+
+---
+
+#### 🌐 One endpoint connecting to many internal IPs
+
+* Check firewall or EDR network telemetry
+
+🟢 Normal
+
+* Backup, monitoring, patch servers
+
+🔴 Attacker
+
+* User laptop scanning multiple servers
+
+---
+
+#### 🛠️ Admin tools used unexpectedly
+
+* Check EDR process execution
+
+🟢 Normal
+
+* Known admin workstation
+* Maintenance window
+
+🔴 Attacker
+
+* PsExec/WMI from user laptop
+* Late night or odd hours
+
+---
+
+## 🧠 2️⃣ BUILD THE INVESTIGATION QUESTION
+
+Before opening logs, define the core question:
+
+> ❓ Did someone move from **Host A** to **Host B** using credentials or remote execution?
+
+All evidence collected later should answer this.
+
+---
+
+## 🧩 3️⃣ IDENTIFY SOURCE & TARGET HOSTS
+
+### 🧠 What to identify
+
+* **Source host** → where activity started
+* **Target host** → where access landed
+
+### 📍 Where to check
+
+* EDR incident graph & process tree
+* SIEM correlated alerts
+* Firewall east-west logs
+
+### 🧪 Example
+
+```text
+EDR Alert
+Host: USER-LAPTOP-23
+User: svc_sql
+
+Windows Log
+4624 logon on DB-SRV-01
+Source IP: USER-LAPTOP-23
+```
+
+➡️ Source: USER-LAPTOP-23 | Target: DB-SRV-01
+
+---
+
+## 🖥️ 4️⃣ ENDPOINT INVESTIGATION (EDR)
+
+### 🔍 What to review
+
+* Process tree (parent → child)
+* Execution user context
+* Command-line arguments
+
+### 🚩 Common lateral movement tools
+
+```text
+psexec.exe
+wmic.exe
+powershell.exe
+cmd.exe
+rundll32.exe
+mstsc.exe
+ssh.exe
+```
+
+### 🔴 Attacker example
+
+```text
+Process: psexec.exe
+Parent: cmd.exe
+User: DOMAIN\\svc-backup
+Command: psexec \\FILE-SRV-02 cmd.exe
+```
+
+### 🟢 Legit admin example
+
+```text
+Process: psexec.exe
+User: DOMAIN\\IT-Admin
+Source: JUMP-SERVER-01
+Time: Maintenance window
+```
+
+---
+
+## 🪟 5️⃣ WINDOWS SECURITY LOGS
+
+### 📍 Log path
+
+```text
+Event Viewer → Windows Logs → Security
+```
+
+---
+
+### 🔑 Event ID 4624 — Successful Logon
+
+#### 🔍 Fields to check
+
+* Account Name
+* Logon Type
+* Source IP
+* Target Host
+* Time
+
+| Logon Type | Meaning                |
+| ---------- | ---------------------- |
+| 3          | Network (SMB / PsExec) |
+| 10         | RDP                    |
+| 9          | Pass-the-Hash          |
+
+#### 🔴 Attacker example
+
+```text
+Event ID: 4624
+Logon Type: 3
+Account: svc_sql
+Source IP: 10.10.10.45
+Time: 03:12 AM
+```
+
+---
+
+### 🔐 Event ID 4672 — Privileged Logon
+
+Indicates admin-level privileges were assigned.
+
+🔴 Red flag
+
+```text
+Account: svc_sql
+Privileges: SeDebugPrivilege
+```
+
+---
+
+### ⚙️ Event ID 4688 — Process Creation
+
+Confirms execution on target system.
+
+🔴 Attacker example
+
+```text
+New Process: cmd.exe
+Creator: psexecsvc.exe
+Account: svc_sql
+```
+
+---
+
+## 🌐 6️⃣ NETWORK LOGS (EAST-WEST)
+
+### 📍 Where to check
+
+* Firewall internal interfaces
+* NetFlow
+* EDR network telemetry
+
+### 🔍 Important ports
+
+* 445 → SMB
+* 3389 → RDP
+* 5985/5986 → WinRM
+* 135 → RPC
+
+🔴 Attacker pattern
+
+```text
+Source: USER-LAPTOP-23
+Destinations: Multiple servers
+Ports: 445, 135
+```
+
+---
+
+## 🔑 7️⃣ CREDENTIAL ABUSE CONFIRMATION
+
+### 📍 Where to check
+
+* EDR memory alerts
+* LSASS access
+* NTLM authentication
+
+🔴 Indicators
+
+* LSASS read attempts
+* Same account across many hosts
+* NTLM instead of Kerberos
+
+---
+
+## 🧪 8️⃣ TECHNIQUE CONFIRMATION
+
+| Technique     | Evidence             |
+| ------------- | -------------------- |
+| PsExec        | psexecsvc.exe + 4688 |
+| WMI           | wmic.exe             |
+| RDP           | 4624 Type 10         |
+| Pass-the-Hash | 4624 Type 9          |
+| WinRM         | PowerShell + 5985    |
+
+---
+
+## 🧰 9️⃣ COMMON ATTACKER TOOLS
+
+```text
+PsExec
+Impacket (wmiexec, smbexec)
+Mimikatz
+CrackMapExec
+Advanced IP Scanner
+netscan
+```
+
+---
+
+## 🛠️ 1️⃣0️⃣ DEFENSIVE LOG SOURCES
+
+* EDR (CrowdStrike, Defender, SentinelOne)
+* SIEM (Splunk, Sentinel, QRadar)
+* Firewall logs
+* AD audit logs
+* Sysmon (if enabled)
+
+---
+
+## 🧯 1️⃣1️⃣ CONTAINMENT ACTIONS
+
+* Isolate source host
+* Disable abused account
+* Reset credentials
+* Block east-west traffic
+* Kill active sessions
+
+---
+
+## 🧾 1️⃣2️⃣ TIMELINE BUILDING
+
+```text
+T1: Malware on Host A
+T2: Credential access
+T3: 4624 logon to Host B
+T4: 4672 privileged access
+T5: 4688 execution
+```
+
+---
+
+## 🧠 1️⃣3️⃣ LEGIT vs ATTACKER DECISION
+
+| Check | Legit       | Attacker     |
+| ----- | ----------- | ------------ |
+| User  | IT Admin    | Service/User |
+| Time  | Planned     | Odd hours    |
+| Host  | Jump server | User laptop  |
+| Scope | Limited     | Broad        |
+| Tools | RMM         | PsExec/WMI   |
+
+---
+
+## 📌 1️⃣4️⃣ FINAL SOC STATEMENT (REPORT READY)
+
+> Investigation confirms unauthorized lateral movement from HOST-A to HOST-B using a compromised service account via SMB (PsExec), supported by 4624, 4672, and 4688 evidence.
